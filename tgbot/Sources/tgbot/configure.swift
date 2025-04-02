@@ -10,7 +10,7 @@ public func configure(_ app: Application) async throws {
     app.http.server.configuration.hostname = "0.0.0.0"
     app.http.server.configuration.port = 80
     // register routes
-    let tgApi: String = "7866294503:AAFM3MbRmlNjomqPUgaOS_nuJgC2idTnVgg"
+    let tgApi = ProcessInfo.processInfo.environment["TELEGRAM_BOT_API"] ?? ""
     let bot: TGBot = try await .init(connectionType: .longpolling(limit: nil,
                                                                   timeout: nil,
                                                                   allowedUpdates: nil),

@@ -5,6 +5,7 @@
 //  Created by Emir Byashimov on 02.04.2025.
 //
 
+import Foundation
 import SwiftTelegramSdk
 
 final class DefaultBotHandlers {
@@ -53,16 +54,32 @@ final class DefaultBotHandlers {
             let fileParams = TGGetFileParams(fileId: fileId)
             let file = try await bot.getFile(params: fileParams)
             
-            print("Файл загружен: \(file.filePath ?? "нет пути")")
+            guard let filePath = file.filePath else {
+                throw NSError(domain: "TGFileError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Файл не найден"])
+            }
             
-            let successMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Обработка завершена!")
+            let telegramFileURL = "https://api.telegram.org/file/bot\(ProcessInfo.processInfo.environment["TELEGRAM_BOT_API"] ?? "")/\(filePath)"
+            let savePath = "/root/LeonardEulerBot/tgbot/documents/\(UUID().uuidString).pdf"
+            
+            try await downloadFile(from: telegramFileURL, to: savePath)
+            
+            let successMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Файл сохранен: \(savePath)")
             try await bot.sendMessage(params: successMessage)
+            
         } catch {
             print("Ошибка при обработке файла: \(error.localizedDescription)")
             let errorMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Ошибка обработки файла.")
             try? await bot.sendMessage(params: errorMessage)
         }
     }
+    
+    private static func downloadFile(from url: String, to path: String) async throws {
+        let url = URL(string: url)!
+        let data = try Data(contentsOf: url)
+        try data.write(to: URL(fileURLWithPath: path))
+    }
+
+
     
     
     private static func messageHandler(bot: TGBot) async {

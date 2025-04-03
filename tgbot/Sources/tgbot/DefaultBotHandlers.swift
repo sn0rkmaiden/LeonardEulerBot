@@ -59,6 +59,7 @@ final class DefaultBotHandlers {
             }
             
             let telegramFileURL = "https://api.telegram.org/file/bot\(ProcessInfo.processInfo.environment["TELEGRAM_BOT_API"] ?? "")/\(filePath)"
+            print(telegramFileURL)
             let savePath = "/root/LeonardEulerBot/tgbot/documents/\(UUID().uuidString).pdf"
             
             try await downloadFile(from: telegramFileURL, to: savePath)
@@ -74,13 +75,21 @@ final class DefaultBotHandlers {
     }
     
     private static func downloadFile(from url: String, to path: String) async throws {
-        let url = URL(string: url)!
-        let data = try Data(contentsOf: url)
+        guard let fileURL = URL(string: url) else {
+            throw NSError(domain: "TGFileError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Некорректный URL"])
+        }
+
+        let request = URLRequest(url: fileURL)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NSError(domain: "TGFileError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Ошибка загрузки файла"])
+        }
+
         try data.write(to: URL(fileURLWithPath: path))
     }
 
-
-    
     
     private static func messageHandler(bot: TGBot) async {
         await bot.dispatcher.add(TGMessageHandler(filters: (.all && !.command.names(["/ping", "/show_buttons"]))) { update in

@@ -70,13 +70,30 @@ final class DefaultBotHandlers {
             let successMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Файл сохранен: \(savePath)")
             try await bot.sendMessage(params: successMessage)
             
-            let params = TGSendDocumentParams(
+            do {
+                let fileData = try Data(contentsOf: URL(fileURLWithPath: savePath))
+                
+                // Создаем TGInputFile с данными, именем файла и MIME-типом
+                let inputFile = TGInputFile(filename: "respondFile.pdf", data: fileData, mimeType: "application/pdf")
+                
+                // Создаем TGFileInfo с этим файлом
+                let fileInfo = TGFileInfo.file(inputFile)
+                
+                // Отправка файла через Telegram API
+                let params = TGSendDocumentParams(
                     chatId: .chat(chatId),
-                    document: TGFileInfo.url(savePath),
+                    document: fileInfo,  // Передаем TGFileInfo.file
                     caption: "Файл успешно загружен и отправлен"
                 )
+                
+                // Отправляем документ
+                try await bot.sendDocument(params: params)
 
-                try? await bot.sendDocument(params: params)
+            } catch {
+                print("Ошибка при чтении файла или отправке: \(error.localizedDescription)")
+                let errorMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Ошибка отправки файла.")
+                try? await bot.sendMessage(params: errorMessage)
+            }
             
         } catch {
             print("Ошибка при обработке файла: \(error.localizedDescription)")

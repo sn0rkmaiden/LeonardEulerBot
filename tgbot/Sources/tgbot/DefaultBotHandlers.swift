@@ -70,6 +70,14 @@ final class DefaultBotHandlers {
             let successMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Файл сохранен: \(savePath)")
             try await bot.sendMessage(params: successMessage)
             
+            let params = TGSendDocumentParams(
+                    chatId: .chat(chatId),
+                    document: TGFileInfo.url(savePath),
+                    caption: "Файл успешно загружен и отправлен"
+                )
+
+                try? await bot.sendDocument(params: params)
+            
         } catch {
             print("Ошибка при обработке файла: \(error.localizedDescription)")
             let errorMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Ошибка обработки файла.")

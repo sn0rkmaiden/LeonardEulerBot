@@ -4,6 +4,7 @@ import SwiftTelegramSdk
 
 // configures your application
 public func configure(_ app: Application) async throws {
+    app.middleware.use(FileScanBlockerMiddleware())
     let botActor: TGBotActor = .init()
     // uncomment to serve files from /Public folder
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))

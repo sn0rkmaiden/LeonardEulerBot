@@ -7,6 +7,9 @@
 
 import Foundation
 import SwiftTelegramSdk
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 final class DefaultBotHandlers {
     

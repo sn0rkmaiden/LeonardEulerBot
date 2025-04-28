@@ -65,7 +65,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "TELEGRAM_BOT_API"
-            value = "7866294503:AAE-umNWBkAMUb1hOdjfZgHG1cfghTrvscA"
+            value = "7866294503:AAH_BQZ18D8HkrfLQNdFWqkFdoRXFnjoxvc"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

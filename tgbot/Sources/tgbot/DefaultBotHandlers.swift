@@ -71,79 +71,96 @@ final class DefaultBotHandlers {
     
     private static func processFile(fileId: String, bot: TGBot, chatId: Int64) async {
         print("Processing file with ID: \(fileId)...")
+        
         do {
             let fileParams = TGGetFileParams(fileId: fileId)
             let file = try await bot.getFile(params: fileParams)
             
-            guard let filePath = file.filePath else {
-                throw NSError(domain: "TGFileError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Файл не найден"])
+            guard let filePath = file.filePath, !filePath.isEmpty else {
+                print("Ошибка: filePath отсутствует или пустой")
+                let errorMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Ошибка: файл не найден на сервере Telegram. Пожалуйста, отправьте файл заново.")
+                try? await bot.sendMessage(params: errorMessage)
+                return
             }
             
-            let telegramFileURL = "https://api.telegram.org/file/bot\(ProcessInfo.processInfo.environment["TELEGRAM_BOT_API"] ?? "")/\(filePath)"
+            // Строим полный URL
+            guard let telegramApiToken = ProcessInfo.processInfo.environment["TELEGRAM_BOT_API"], !telegramApiToken.isEmpty else {
+                print("Ошибка: TELEGRAM_BOT_API токен не найден в окружении")
+                let errorMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Ошибка настройки бота. Попробуйте позже.")
+                try? await bot.sendMessage(params: errorMessage)
+                return
+            }
+            
+            let telegramFileURL = "https://api.telegram.org/file/bot\(telegramApiToken)/\(filePath)"
             print("Downloading file from URL: \(telegramFileURL)")
+            
             let savePath = "/root/LeonardEulerBot/tgbot/documents/\(UUID().uuidString).pdf"
             
-            try await downloadFile(from: telegramFileURL, to: savePath)
-            print("File downloaded and saved to: \(savePath)")
+            // Пытаемся скачать файл
+            do {
+                try await downloadFile(from: telegramFileURL, to: savePath)
+                print("File successfully downloaded and saved to: \(savePath)")
+            } catch {
+                print("Ошибка при загрузке файла: \(error.localizedDescription)")
+                let errorMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Не удалось скачать файл. Попробуйте отправить файл заново.")
+                try? await bot.sendMessage(params: errorMessage)
+                return
+            }
             
-            let successMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Файл сохранен: \(savePath)")
-            try await bot.sendMessage(params: successMessage)
-            
+            // Теперь читаем файл и отправляем обратно пользователю
             do {
                 let fileData = try Data(contentsOf: URL(fileURLWithPath: savePath))
                 print("File data read successfully.")
                 
-                // Создаем TGInputFile с данными, именем файла и MIME-типом
                 let inputFile = TGInputFile(filename: "respondFile.pdf", data: fileData, mimeType: "application/pdf")
-                
-                // Создаем TGFileInfo с этим файлом
                 let fileInfo = TGFileInfo.file(inputFile)
                 
-                // Отправка файла через Telegram API
-                let params = TGSendDocumentParams(
+                let sendParams = TGSendDocumentParams(
                     chatId: .chat(chatId),
-                    document: fileInfo,  // Передаем TGFileInfo.file
+                    document: fileInfo,
                     caption: "Файл успешно загружен и отправлен"
                 )
                 
-                // Отправляем документ
-                try await bot.sendDocument(params: params)
+                try await bot.sendDocument(params: sendParams)
                 print("File successfully sent to user \(chatId).")
+                
             } catch {
-                print("Ошибка при чтении файла или отправке: \(error.localizedDescription)")
-                let errorMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Ошибка отправки файла.")
+                print("Ошибка при чтении или отправке файла: \(error.localizedDescription)")
+                let errorMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Ошибка при обработке файла. Попробуйте позже.")
                 try? await bot.sendMessage(params: errorMessage)
             }
             
         } catch {
-            print("Ошибка при обработке файла: \(error.localizedDescription)")
-            let errorMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Ошибка обработки файла.")
+            print("Ошибка при получении filePath через getFile: \(error.localizedDescription)")
+            let errorMessage = TGSendMessageParams(chatId: .chat(chatId), text: "Ошибка при получении данных о файле.")
             try? await bot.sendMessage(params: errorMessage)
         }
     }
+
     
     private static func downloadFile(from url: String, to path: String) async throws {
         print("Downloading file from URL: \(url) to path: \(path)...")
+        
         guard let fileURL = URL(string: url) else {
-            throw NSError(domain: "TGFileError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Некорректный URL"])
+            throw NSError(domain: "TGFileError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Некорректный URL для скачивания файла"])
         }
 
         let request = URLRequest(url: fileURL)
         
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                throw NSError(domain: "TGFileError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Ошибка загрузки файла"])
-            }
-
-            try data.write(to: URL(fileURLWithPath: path))
-            print("File successfully downloaded to: \(path)")
-        } catch {
-            print("Error downloading file: \(error.localizedDescription)")
-            throw error
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "TGFileError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Некорректный ответ сервера при загрузке файла"])
         }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw NSError(domain: "TGFileError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Файл не найден на сервере Telegram (код ответа: \(httpResponse.statusCode))"])
+        }
+        
+        try data.write(to: URL(fileURLWithPath: path))
+        print("File successfully downloaded to: \(path)")
     }
+
 
     private static func messageHandler(bot: TGBot) async {
         print("Setting up message handler...")

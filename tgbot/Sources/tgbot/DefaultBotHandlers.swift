@@ -94,7 +94,7 @@ final class DefaultBotHandlers {
             let telegramFileURL = "https://api.telegram.org/file/bot\(telegramApiToken)/\(filePath)"
             print("Downloading file from URL: \(telegramFileURL)")
             
-            let savePath = "/home/LeonardEulerBot/tgbot/documents/\(UUID().uuidString).pdf"
+            let savePath = "/home/ubuntu/LeonardEulerBot/tgbot/documents/\(UUID().uuidString).pdf"
             
             // Пытаемся скачать файл
             do {
